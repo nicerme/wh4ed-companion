@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CharacterPoint">
+        <attr name="name" format="string"/>
+    </declare-styleable>
+    <declare-styleable name="CharacterStat">
+        <attr name="statName" format="string"/>
+        <attr name="editable" format="boolean"/>
+    </declare-styleable>
+    <declare-styleable name="TextInput">
+        <attr name="inputLabel" format="string"/>
+        <attr name="android:maxLength" format="integer" min="0"/>
+        <attr name="android:inputType"/>
+        <attr name="android:minLines" format="integer" min="0"/>
+        <attr name="android:maxLines" format="integer" min="0"/>
+    </declare-styleable>
+    <declare-styleable name="AmbitionsCard">
+        <attr name="title" format="string"/>
+        <attr name="titleDrawable" format="reference"/>
+    </declare-styleable>
+</resources>

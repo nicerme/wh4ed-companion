@@ -1,0 +1,962 @@
+rules_version = '2';
+
+service cloud.firestore {
+    match /databases/{database}/documents {
+        // Let users search for all their Characters across the parties
+        match /{path=**}/characters/{characterId} {
+          allow read: if request.auth.uid != null || resource.data.userId == request.auth.uid;
+        }
+
+        match /parties/{party=**} {
+            allow read: if request.auth.uid != null
+                        && request.auth.uid in resource.data.users;
+        }
+
+        match /parties/{partyId} {
+            allow create: if request.auth != null && isValidNewParty(request.resource.data, request.auth.uid);
+            allow write: if request.auth != null
+                         && ((isGameMaster() && isValidPartyEdit()) || onlyUserAdded() || onlyUserRemoved() || combatantsChange());
+
+            //
+            // Compendium
+            //
+            match /skills/{skillId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidSkill(request.resource.data);
+                allow update: if isGameMaster() && isValidSkill(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidSkill(skill) {
+                    return [
+                       "id",
+                       "name",
+                       "description",
+                       "advanced",
+                       "characteristic",
+                       "isVisibleToPlayers"
+                   ].hasAll(skill.keys())
+                        && skill.id is string && skill.id == skillId && isValidUuid(skill.id)
+                        && skill.name is string && isNotBlank(skill.name) && skill.name.size() <= 50
+                        && skill.description is string && skill.description.size() <= 2500
+                        && skill.advanced is bool
+                        && skill.characteristic in validCharacteristics()
+                        && (! ("isVisibleToPlayers" in skill) || skill.isVisibleToPlayers is bool);
+                }
+            }
+
+            match /talents/{talentId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidTalent(request.resource.data);
+                allow update: if isGameMaster() && isValidTalent(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidTalent(talent) {
+                    return [
+                       "id",
+                       "name",
+                       "maxTimesTaken",
+                       "description",
+                       "tests",
+                       "isVisibleToPlayers"
+                   ].hasAll(talent.keys())
+                        && talent.id is string && talent.id == talentId && isValidUuid(talent.id)
+                        && talent.name is string && isNotBlank(talent.name) && talent.name.size() <= 50
+                        && talent.maxTimesTaken is string && talent.name.size() <= 100
+                        && talent.description is string && talent.description.size() <= 1500
+                        && (! ("tests" in talent) || (talent.tests is string && talent.tests.size() <= 200))
+                        && (! ("isVisibleToPlayers" in talent) || talent.isVisibleToPlayers is bool);
+
+                }
+            }
+
+            match /spells/{spellId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidSpell(request.resource.data);
+                allow update: if isGameMaster() && isValidSpell(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidSpell(spell) {
+                    return [
+                       "id",
+                       "name",
+                       "range",
+                       "target",
+                       "duration",
+                       "castingNumber",
+                       "effect",
+                       "lore",
+                       "loreType",
+                       "isVisibleToPlayers"
+                    ].hasAll(spell.keys())
+                        && spell.id is string && spell.id == spellId && isValidUuid(spell.id)
+                        && spell.name is string && isNotBlank(spell.name) && spell.name.size() <= 50
+                        && spell.range is string && spell.range.size() <= 50
+                        && spell.target is string && spell.target.size() <= 50
+                        && spell.duration is string && spell.duration.size() <= 50
+                        && spell.effect is string && spell.effect.size() <= 1500
+                        && spell.castingNumber is int && spell.castingNumber >= 0 && spell.castingNumber <= 99
+                        && spell.lore is string && spell.lore.size() <= 50
+                        && (! ("loreType" in spell) || spell.loreType is string || spell.loreType == null)
+                        && (! ("isVisibleToPlayers" in spell) || spell.isVisibleToPlayers is bool);
+                }
+            }
+
+            match /blessings/{blessingId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidBlessing(request.resource.data);
+                allow update: if isGameMaster() && isValidBlessing(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidBlessing(blessing) {
+                    return [
+                       "id",
+                       "name",
+                       "range",
+                       "target",
+                       "duration",
+                       "effect",
+                       "isVisibleToPlayers"
+                   ].hasAll(blessing.keys())
+                        && blessing.id is string && blessing.id == blessingId && isValidUuid(blessing.id)
+                        && blessing.name is string && isNotBlank(blessing.name) && blessing.name.size() <= 50
+                        && blessing.range is string && blessing.range.size() <= 50
+                        && blessing.target is string && blessing.target.size() <= 50
+                        && blessing.duration is string && blessing.duration.size() <= 50
+                        && blessing.effect is string && blessing.effect.size() <= 1000
+                        && (! ("isVisibleToPlayers" in blessing) || blessing.isVisibleToPlayers is bool);
+                }
+            }
+
+            match /miracles/{miracleId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidMiracle(request.resource.data);
+                allow update: if isGameMaster() && isValidMiracle(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidMiracle(miracle) {
+                    return [
+                       "id",
+                       "name",
+                       "range",
+                       "target",
+                       "duration",
+                       "effect",
+                       "cultName",
+                       "isVisibleToPlayers"
+                   ].hasAll(miracle.keys())
+                        && miracle.id is string && miracle.id == miracleId && isValidUuid(miracle.id)
+                        && miracle.name is string && isNotBlank(miracle.name) && miracle.name.size() <= 50
+                        && miracle.range is string && miracle.range.size() <= 50
+                        && miracle.target is string && miracle.target.size() <= 200
+                        && miracle.duration is string && miracle.duration.size() <= 50
+                        && miracle.effect is string && miracle.effect.size() <= 1000
+                        && miracle.cultName is string && miracle.cultName.size() <= 50
+                        && (! ("isVisibleToPlayers" in miracle) || miracle.isVisibleToPlayers is bool);
+                }
+            }
+
+            match /traits/{traitId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidTrait(request.resource.data);
+                allow update: if isGameMaster() && isValidTrait(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidTrait(trait) {
+                    return [
+                        "id",
+                        "name",
+                        "specifications",
+                        "description",
+                        "isVisibleToPlayers"
+                    ].hasAll(trait.keys())
+                        && trait.id is string && trait.id == traitId && isValidUuid(trait.id)
+                        && trait.name is string && isNotBlank(trait.name) && trait.name.size() <= 50
+                        && trait.description is string && trait.description.size() <= 3000
+                        && (! ("isVisibleToPlayers" in trait) || trait.isVisibleToPlayers is bool);
+                }
+            }
+
+
+            match /trappings/{trappingId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidTrapping(request.resource.data);
+                allow update: if isGameMaster() && isValidTrapping(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidTrapping(trapping) {
+                    return [
+                           "id",
+                           "name",
+                           "encumbrance",
+                           "trappingType",
+                           "availability",
+                           "price",
+                           "packSize",
+                           "description",
+                           "isVisibleToPlayers"
+                           ].hasAll(trapping.keys())
+                           && trapping.id is string && trapping.id == trappingId && isValidUuid(trapping.id)
+                           && trapping.name is string && isNotBlank(trapping.name) && trapping.name.size() <= 50
+                           && trapping.encumbrance is number && trapping.encumbrance >= 0
+                           && trapping.availability in ["COMMON", "SCARCE", "RARE", "EXOTIC"]
+                           && areMoneyValid(trapping.price)
+                           && trapping.packSize is number && trapping.packSize >= 1
+                           && trapping.description is string && trapping.description.size() <= 2500
+                           && trapping.isVisibleToPlayers is bool;
+                }
+            }
+
+            match /diseases/{diseaseId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidDisease(request.resource.data);
+                allow update: if isGameMaster() && isValidDisease(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidDisease(disease) {
+                    return [
+                           "id",
+                           "name",
+                           "contraction",
+                           "incubation",
+                           "duration",
+                           "symptoms",
+                           "permanentEffects",
+                           "description",
+                           "isVisibleToPlayers"
+                           ].hasAll(disease.keys())
+                           && disease.id is string && disease.id == diseaseId && isValidUuid(disease.id)
+                           && disease.name is string && isNotBlank(disease.name) && disease.name.size() <= 50
+                           && disease.contraction is string && disease.contraction.size() <= 500
+                           && disease.incubation is string && disease.incubation.size() <= 100
+                           && disease.duration is string && disease.duration.size() <= 500
+                           && disease.symptoms is list
+                           && disease.permanentEffects is string && disease.permanentEffects.size() <= 200
+                           && disease.description is string && disease.description.size() <= 1000
+                           && disease.isVisibleToPlayers is bool;
+                }
+            }
+
+            match /careers/{careerId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidCareer(request.resource.data);
+                allow update: if isGameMaster() && isValidCareer(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidCareer(career) {
+                    return [
+                        "id",
+                        "name",
+                        "description",
+                        "socialClass",
+                        "races",
+                        "levels",
+                        "isVisibleToPlayers"
+                    ].hasAll(career.keys())
+                        && career.id is string && career.id == careerId && isValidUuid(career.id)
+                        && career.name is string && isNotBlank(career.name) && career.name.size() <= 50
+                        && career.description is string && career.description.size() <= 3000
+                        && career.socialClass is string && isValidSocialClass(career.socialClass)
+                        && career.races is list
+                            && career.races.toSet().size() == career.races.size() // There are no duplicates
+                            && validRaces().hasAll(career.races)
+                        && career.levels is list
+                        && (! ("isVisibleToPlayers" in career) || career.isVisibleToPlayers is bool);
+                }
+
+                function isValidSocialClass(socialClass) {
+                    return socialClass in [
+                        "ACADEMICS",
+                        "BURGHERS",
+                        "COURTIERS",
+                        "PEASANTS",
+                        "RANGERS",
+                        "RIVERFOLK",
+                        "ROGUES",
+                        "SEAFARERS",
+                        "WARRIORS",
+                    ];
+                }
+            }
+
+            match /journal/{entryId} {
+                allow read: if hasAccessToParty();
+                allow create: if isGameMaster() && isValidJournalEntry(request.resource.data);
+                allow update: if isGameMaster() && isValidJournalEntry(request.resource.data);
+                allow delete: if isGameMaster();
+
+                function isValidJournalEntry(entry) {
+                    return [
+                        "id",
+                        "name",
+                        "parents",
+                        "pinned",
+                        "text",
+                        "gmText",
+                        "isVisibleToPlayers"
+                    ].hasAll(entry.keys())
+                        && entry.id is string && entry.id == entryId && isValidUuid(entry.id)
+                        && entry.name is string && isNotBlank(entry.name) && entry.name.size() <= 50
+                        && entry.parents is list
+                        && entry.pinned is bool
+                        && entry.text is string && entry.text.size() <= 5000
+                        && entry.gmText is string && entry.gmText.size() <= 5000
+                        && entry.isVisibleToPlayers is bool;
+                }
+            }
+            // End of Compendium
+
+            match /encounters/{encounterId} {
+                allow read: if hasAccessToParty();
+                allow create: if isValidEncounter(request.resource.data)
+                            && hasAccessToParty()
+                            && isGameMaster();
+                allow update: if isValidEncounter(request.resource.data)
+                              && hasAccessToParty()
+                              && isGameMaster();
+                allow delete: if hasAccessToParty() && isGameMaster();
+
+                function isValidEncounter(encounter) {
+                    return encounter is map
+                        && ["id", "name", "description", "position", "completed", "characters"].hasAll(encounter.keys())
+                        && encounter.id is string && encounter.id == encounterId
+                        && encounter.name is string && isNotBlank(encounter.name) && encounter.name.size() <= 100
+                        && encounter.description is string && encounter.description.size() <= 1000
+                        && encounter.position is int && encounter.position >= 0
+                        && encounter.completed is bool
+                        && (! ("characters" in encounter) || encounter.characters is map);
+                }
+            }
+
+            match /characters/{characterId} {
+                allow create: if hasAccessToParty()
+                                && isValidCharacter(request.resource.data)
+                                && (isGameMaster() || request.resource.data.userId == request.auth.uid);
+                allow update: if canEditCharacter()
+                              && isValidCharacter(request.resource.data);
+                allow read: if hasAccessToParty();
+
+                match /inventory/{itemId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidInventoryItem(request.resource.data);
+                    allow update: if canEditCharacter() && isValidInventoryItem(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidInventoryItem(item) {
+                        return ["id", "name", "description", "note", "quantity", "encumbrance", "trappingType", "containerId", "compendiumId", "itemQualities", "itemFlaws", "isEncumbranceCounted"].hasAll(item.keys())
+                            && item.id is string && item.id == itemId && isValidUuid(item.id)
+                            && item.name is string && isNotBlank(item.name) && item.name.size() <= 50
+                            && item.description is string && item.description.size() <= 2500
+                            && item.quantity is int && item.quantity > 0
+                            && (! ("encumbrance" in item) || (item.encumbrance is number && item.encumbrance >= 0))
+                            && (! ("trappingType" in item) || item.trappingType == null || item.trappingType is map)
+                            && (! ("containerId" in item)
+                                || item.containerId == null || containerExists(item.containerId)
+                            )
+                            && (! ("note" in item) || (item.note is string && item.note.size() <= 500))
+                            && (!("compendiumId" in item) || (item.compendiumId == null || (item.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/trappings/$(item.compendiumId)))))
+                            && (!("isEncumbranceCounted" in item) || item.isEncumbranceCounted is bool);
+                    }
+
+                    function containerExists(containerId) {
+                        let container = get(/databases/$(database)/documents/parties/$(partyId)/characters/$(characterId)/inventory/$(containerId));
+
+                        return container.data.trappingType != null && container.data.trappingType.kind == "CONTAINER";
+                    }
+                }
+
+                match /skills/{skillId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidSkill(request.resource.data);
+                    allow update: if canEditCharacter() && isValidSkill(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidSkill(skill) {
+                        return ["id", "name", "description", "advanced", "characteristic", "advances", "compendiumId"].hasAll(skill.keys())
+                            && skill.id is string && skill.id == skillId && isValidUuid(skill.id)
+                            && skill.name is string && isNotBlank(skill.name) && skill.name.size() <= 50
+                            && skill.description is string && skill.description.size() <= 2500
+                            && skill.advanced is bool
+                            && skill.advances is int && skill.advances >= 0
+                            && skill.characteristic in [
+                                "AGILITY",
+                                "BALLISTIC_SKILL",
+                                "DEXTERITY",
+                                "INITIATIVE",
+                                "INTELLIGENCE",
+                                "FELLOWSHIP",
+                                "STRENGTH",
+                                "TOUGHNESS",
+                                "WILL_POWER",
+                                "WEAPON_SKILL"
+                            ]
+                            && (! ("compendiumId" in skill)
+                                || (
+                                    skill.compendiumId == null
+                                    || (skill.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/skills/$(skill.compendiumId)))
+                                )
+                            )
+                    }
+                }
+
+                match /talents/{talentId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidTalent(request.resource.data);
+                    allow update: if canEditCharacter() && isValidTalent(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidTalent(talent) {
+                        return ["id", "name", "description", "taken", "compendiumId", "tests", "maxTimesTaken"].hasAll(talent.keys())
+                            && talent.id is string && talent.id == talentId && isValidUuid(talent.id)
+                            && talent.name is string && isNotBlank(talent.name) && talent.name.size() <= 50
+                            && talent.description is string && talent.description.size() <= 1500
+                            && talent.taken is int && talent.taken >= 1 && talent.taken <= 999
+                            && (! ("compendiumId" in talent)
+                                || (
+                                    talent.compendiumId == null
+                                    || (talent.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/talents/$(talent.compendiumId)))
+                                )
+                            )
+                            && (! ("tests" in talent) || (talent.tests is string && talent.tests.size() <= 200))
+                            && (! ("maxTimesTaken" in talent) || (talent.maxTimesTaken is string && talent.maxTimesTaken.size() <= 100));
+                    }
+                }
+
+                match /traits/{traitId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidTrait(request.resource.data);
+                    allow update: if canEditCharacter() && isValidTrait(request.resource.data);
+                    allow delete: if canEditCharacter();
+                    function isValidTrait(trait) {
+                        return trait.keys().toSet() == ["id", "name", "specificationValues", "description", "compendiumId"].toSet()
+                               && trait.id is string && trait.id == traitId && isValidUuid(trait.id)
+                               && trait.name is string && isNotBlank(trait.name) && trait.name.size() <= 50
+                               && trait.description is string && trait.description.size() <= 3000
+                               && (! ("compendiumId" in trait)
+                                   || (
+                            trait.compendiumId == null
+                                        || (trait.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/traits/$(trait.compendiumId)))
+                                )
+                              );
+                    }
+                }
+
+                match /spells/{spellId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidSpell(request.resource.data);
+                    allow update: if canEditCharacter() && isValidSpell(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidSpell(spell) {
+                        return [
+                           "id",
+                           "name",
+                           "range",
+                           "target",
+                           "lore",
+                           "duration",
+                           "castingNumber",
+                           "effect",
+                           "compendiumId",
+                           "memorized"
+                       ].hasAll(spell.keys())
+                            && spell.id is string && spell.id == spellId && isValidUuid(spell.id)
+                            && spell.name is string && isNotBlank(spell.name) && spell.name.size() <= 50
+                            && spell.range is string && spell.range.size() <= 50
+                            && spell.target is string && spell.target.size() <= 50
+                            && (! ("lore" in spell) || spell.lore is string || spell.lore == null)
+                            && spell.duration is string && spell.duration.size() <= 50
+                            && spell.effect is string && spell.effect.size() <= 1500
+                            && spell.castingNumber is int && spell.castingNumber >= 0 && spell.castingNumber <= 99
+                            && (! ("memorized" in spell) || spell.memorized is bool)
+                            && (! ("compendiumId" in spell)
+                                || (
+                                    spell.compendiumId == null
+                                    || (spell.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/spells/$(spell.compendiumId)))
+                                )
+                            );
+                    }
+                }
+
+                match /blessings/{blessingId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidBlessing(request.resource.data);
+                    allow update: if canEditCharacter() && isValidBlessing(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidBlessing(blessing) {
+                        return blessing.keys().toSet() == ["id", "name", "range", "target", "duration", "effect", "compendiumId"].toSet()
+                        && blessing.id is string && blessing.id == blessingId && isValidUuid(blessing.id)
+                        && blessing.name is string && isNotBlank(blessing.name) && blessing.name.size() <= 50
+                        && blessing.range is string && blessing.range.size() <= 50
+                        && blessing.target is string && blessing.target.size() <= 50
+                        && blessing.duration is string && blessing.duration.size() <= 50
+                        && blessing.effect is string && blessing.effect.size() <= 1000
+                        && (
+                            blessing.compendiumId == null
+                            || (blessing.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/blessings/$(blessing.compendiumId)))
+                        );
+                    }
+                }
+
+                match /miracles/{miracleId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidMiracle(request.resource.data);
+                    allow update: if canEditCharacter() && isValidMiracle(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidMiracle(miracle) {
+                        return miracle.keys().toSet() == ["id", "name", "range", "target", "duration", "effect", "cultName", "compendiumId"].toSet()
+                        && miracle.id is string && miracle.id == miracleId && isValidUuid(miracle.id)
+                        && miracle.name is string && isNotBlank(miracle.name) && miracle.name.size() <= 50
+                        && miracle.range is string && miracle.range.size() <= 50
+                        && miracle.target is string && miracle.target.size() <= 200
+                        && miracle.duration is string && miracle.duration.size() <= 50
+                        && miracle.effect is string && miracle.effect.size() <= 1000
+                        && miracle.cultName is string && miracle.cultName.size() <= 50
+                        && (
+                            miracle.compendiumId == null
+                            || (miracle.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/miracles/$(miracle.compendiumId)))
+                        );
+                    }
+                }
+
+                match /diseases/{diseaseId} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidDisease(request.resource.data);
+                    allow update: if canEditCharacter() && isValidDisease(request.resource.data);
+                    allow delete: if canEditCharacter();
+
+                    function isValidDisease(disease) {
+                        return disease.keys().toSet() == ["id", "name", "description", "symptoms", "permanentEffects", "incubation", "duration", "isDiagnosed", "compendiumId", "note"].toSet()
+                        && disease.id is string && disease.id == diseaseId && isValidUuid(disease.id)
+                        && disease.name is string && isNotBlank(disease.name) && disease.name.size() <= 50
+                        && disease.description is string && disease.description.size() <= 1000
+                        && disease.symptoms is list
+                        && disease.permanentEffects is string && disease.permanentEffects.size() <= 200
+                        && isValidCountdown(disease.incubation)
+                        && isValidCountdown(disease.duration)
+                        && disease.isDiagnosed is bool
+                        && (
+                            disease.compendiumId == null
+                            || (disease.compendiumId is string && exists(/databases/$(database)/documents/parties/$(partyId)/diseases/$(disease.compendiumId)))
+                        )
+                        && disease.note is string && disease.note.size() <= 500;
+                    }
+
+                    function isValidCountdown(countdown) {
+                        return countdown.keys().toSet() == ["value", "unit"].toSet()
+                        && countdown.value is int && countdown.value >= 0
+                        && countdown.unit in ["DAYS", "HOURS", "MINUTES"];
+                    }
+                }
+
+                match /features/{featureName} {
+                    allow read: if hasAccessToParty();
+                    allow create: if canEditCharacter() && isValidFeature(request.resource.data);
+                    allow update: if canEditCharacter() && isValidFeature(request.resource.data);
+
+
+                    function isValidFeature(data) {
+                        return featureName == "armor" && isArmorValid(data);
+                    }
+                }
+
+                function isCharacterOwner() {
+                    let character = get(/databases/$(database)/documents/parties/$(partyId)/characters/$(characterId)).data;
+
+                    return request.auth != null && request.auth.uid == character.userId;
+                }
+
+                function isUnassignedPlayerCharacter() {
+                    let character = get(/databases/$(database)/documents/parties/$(partyId)/characters/$(characterId)).data;
+
+                    return character.type == "PLAYER_CHARACTER" && character.userId == null;
+                }
+
+                function canEditCharacter() {
+                    return hasAccessToParty()
+                        && (isGameMaster() || isCharacterOwner() || isUnassignedPlayerCharacter());
+                }
+
+                function isValidCharacter(character) {
+                    return [
+                            "id",
+                            "type",
+                            "name",
+                            "publicName",
+                            "career",
+                            "size",
+                            "socialClass",
+                            "status",
+                            "points",
+                            "race",
+                            "characteristicsBase",
+                            "characteristicsAdvances",
+                            "userId",
+                            "money",
+                            "motivation",
+                            "psychology",
+                            "mutation",
+                            "ambitions",
+                            "note",
+                            "hardyTalent",
+                            "conditions",
+                            "hardyTalent",
+                            "hiddenTabs",
+                            "avatarUrl",
+                            "archived",
+                            "woundsModifiers",
+                            "compendiumCareer",
+                            "encumbranceBonus",
+                            "corruptionBufferBonus"
+                        ].hasAll(character.keys())
+                        && character.id == characterId
+                        && (character.userId == null || character.userId in get(/databases/$(database)/documents/parties/$(partyId)).data.users)
+                        && character.type in ["PLAYER_CHARACTER", "NPC"]
+                        && character.name is string && isNotBlank(character.name) && character.name.size() <= 50
+                        && (character.publicName == null || (character.publicName is string && isNotBlank(character.publicName) && character.publicName.size() <= 50))
+                        && character.career is string && character.career.size() <= 50
+                        && character.psychology is string && character.psychology.size() <= 200
+                        && character.motivation is string && character.motivation.size() <= 200
+                        && character.mutation is string && character.mutation.size() <= 200
+                        && character.socialClass is string && character.socialClass.size() <= 50
+                        && (character.race == null || (character.race is string && character.race in validRaces()))
+                        && arePointsValid(character.points)
+                        && areStatsValid(character.characteristicsBase)
+                        && areStatsValid(character.characteristicsAdvances)
+                        && areMoneyValid(character.money)
+                        && areAmbitionsValid(character.ambitions)
+                        && character.note is string && character.note.size() <= 2000
+                        && (! ("hardyTalent" in character) || character.hardyTalent is bool)
+                        && (
+                            character.hiddenTabs is list &&
+                            character.hiddenTabs.toSet().size() == character.hiddenTabs.size() &&
+                                [
+                                    "ATTRIBUTES",
+                                    "COMBAT",
+                                    "CONDITIONS",
+                                    "SKILLS_AND_TALENTS",
+                                    "SPELLS",
+                                    "RELIGION",
+                                    "TRAPPINGS",
+                                    "NOTES",
+                                    "WELL_BEING"
+                                ].hasAll(character.hiddenTabs)
+                        )
+                        && (character.size == null || (
+                            character.size is string
+                                && character.size in [
+                                    "TINY",
+                                    "LITTLE",
+                                    "SMALL",
+                                    "AVERAGE",
+                                    "LARGE",
+                                    "ENORMOUS",
+                                    "MONSTROUS"
+                                ]
+                            )
+                        )
+                        && (character.avatarUrl is string || character.avatarUrl == null)
+                        && (character.archived is bool && (!character.archived || character.userId == null))
+                        && (areValidConditions(character.conditions))
+                        && (
+                            character.status is map && character.status.keys().toSet() == ["tier", "standing"].toSet()
+                                && character.status.tier in ["BRASS", "SILVER", "GOLD"]
+                                && character.status.standing is int && character.status.standing >= 0
+                        )
+                        && areValidWoundsModifiers(character.woundsModifiers)
+                        && (character.compendiumCareer == null || isCompendiumCareerValid(character.compendiumCareer))
+                        && character.encumbranceBonus is number && character.encumbranceBonus >= 0
+                        && ( !("corruptionBufferBonus" in character) || (character.corruptionBufferBonus is int && character.corruptionBufferBonus >= 0));
+                }
+            }
+
+            function areValidWoundsModifiers(woundsModifiers) {
+                return woundsModifiers is map
+                    && ["afterMultiplier", "extraToughnessBonusMultiplier", "isConstruct"].hasAll(woundsModifiers.keys())
+                    && woundsModifiers.afterMultiplier is int
+                    && woundsModifiers.extraToughnessBonusMultiplier is int
+                    && (! ("isConstruct" in woundsModifiers) || woundsModifiers.isConstruct is bool);
+            }
+
+            function isCompendiumCareerValid(career) {
+                return career is map
+                    && career.keys().toSet() == ["careerId", "levelId"].toSet()
+                    && career.careerId is string && isValidUuid(career.careerId)
+                    && career.levelId is string && isValidUuid(career.levelId);
+            }
+
+            function arePointsValid(points) {
+                return points is map
+                    && [
+                        "corruption",
+                        "experience",
+                        "spentExperience",
+                        "fate",
+                        "fortune",
+                        "maxWounds",
+                        "resilience",
+                        "resolve",
+                        "sin",
+                        "wounds",
+                        "hardyWoundsBonus"
+                    ].hasAll(points.keys())
+                    && points.corruption is int
+                    && points.fate is int
+                    && points.fortune is int
+                    && (points.maxWounds == null || points.maxWounds is int)
+                    && points.resilience is int
+                    && points.resolve is int
+                    && points.sin is int
+                    && points.wounds is int
+                    && points.experience is int
+                    && (! ("spentExperience" in points) || points.experience is int)
+                    && (! ("hardyWoundsBonus " in points) || points.hardyWoundsBonus is int);
+            }
+
+            function areStatsValid(stats) {
+                return stats is map
+                    && stats.keys().toSet() == [
+                        "agility",
+                        "ballisticSkill",
+                        "dexterity",
+                        "fellowship",
+                        "initiative",
+                        "intelligence",
+                        "strength",
+                        "toughness",
+                        "weaponSkill",
+                        "willPower"
+                    ].toSet()
+                    && stats.agility is int
+                    && stats.ballisticSkill is int
+                    && stats.dexterity is int
+                    && stats.fellowship is int
+                    && stats.initiative is int
+                    && stats.intelligence is int
+                    && stats.strength is int
+                    && stats.toughness is int
+                    && stats.weaponSkill is int
+                    && stats.willPower is int;
+            }
+
+            function areValidConditions(conditions) {
+                return conditions is map && conditions.keys().toSet() == ["conditions"].toSet()
+                    && conditions.conditions is map
+                    && [
+                        "ABLAZE",
+                        "BLEEDING",
+                        "BLINDED",
+                        "BROKEN",
+                        "DEAFENED",
+                        "ENTANGLED",
+                        "FATIGUED",
+                        "POISONED",
+                        "PRONE",
+                        "STUNNED",
+                        "SURPRISED",
+                        "UNCONSCIOUS"
+                    ].hasAll(conditions.conditions.keys());
+            }
+
+            function isArmorValid(armor) {
+                return armor is map
+                    && armor.keys().toSet() == ["head", "body", "leftArm", "rightArm", "leftLeg", "rightLeg", "shield"].toSet()
+                    && armor.head is int && armor.head >= 0 && armor.head <= 99
+                    && armor.body is int && armor.body >= 0 && armor.body <= 99
+                    && armor.leftArm is int && armor.leftArm >= 0 && armor.leftArm <= 99
+                    && armor.rightArm is int && armor.rightArm >= 0 && armor.rightArm <= 99
+                    && armor.leftLeg is int && armor.leftLeg >= 0 && armor.leftLeg <= 99
+                    && armor.rightLeg is int && armor.rightLeg >= 0 && armor.rightLeg <= 99
+                    && armor.shield is int && armor.shield >= 0 && armor.shield <= 99;
+            }
+
+
+            function isValidUuid(maybeUuid) {
+                return maybeUuid.matches("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+            }
+
+            function areAmbitionsValid(ambitions) {
+                return ambitions is map && ambitions.keys().toSet() == ["shortTerm", "longTerm"].toSet()
+                    && ambitions.shortTerm is string && ambitions.shortTerm.size() <= 400
+                    && ambitions.longTerm is string && ambitions.longTerm.size() <= 400;
+            }
+
+            function isValidPartyName(name) {
+                return name is string && isNotBlank(name) && name.size() <= 50;
+            }
+
+            function isValidNewParty(party, uid) {
+                return ["id", "name", "users", "gameMasterId", "accessCode", "ambitions", "archived", "time", "activeCombat", "settings"].hasAll(party.keys())
+                    && party.id is string && party.id == partyId && isValidUuid(party.id)
+                    && isValidPartyName(party.name)
+                    && party.users == [uid]
+                    && party.archived is bool
+                    && party.activeCombat == null
+                    && (party.gameMasterId == uid || party.gameMasterId == null)
+                    && party.accessCode is string && party.accessCode != ""
+                    && isValidImperialTime(party.time)
+                    && areAmbitionsValid(party.ambitions)
+                    && areValidSettings(party.settings)
+            }
+
+            function isValidPartyEdit() {
+                let party = request.resource.data;
+                let diff = resource.data.diff(request.resource.data);
+
+                return ["ambitions", "name", "archived", "time", "users", "activeCombat", "settings"].toSet().hasAll(diff.affectedKeys())
+                    && areAmbitionsValid(party.ambitions)
+                    && isValidPartyName(party.name)
+                    && party.users.toSet() == resource.data.users.toSet()
+                    && isValidImperialTime(party.time)
+                    && (party.activeCombat == null || isValidCombat(party.activeCombat))
+                    && areValidSettings(party.settings)
+                    && party.archived is bool;
+            }
+
+            function isValidImperialTime(time) {
+                return time is map
+                    && time.keys().toSet() == ["imperialDay", "minutes"].toSet()
+                    && time.minutes is int && time.minutes >= 0 && time.minutes < 60 * 24
+                    && time.imperialDay is int;
+            }
+
+            function areValidSettings(settings) {
+                return settings is map
+                    && ["initiativeStrategy", "advantageCap", "advantageSystem", "language"].toSet().hasAll(settings.keys())
+                    && settings.initiativeStrategy in [
+                        "INITIATIVE_CHARACTERISTIC",
+                        "INITIATIVE_TEST",
+                        "INITIATIVE_PLUS_1D10",
+                        "BONUSES_PLUS_1D10"
+                    ] &&
+                    (! ("advantageCap" in settings) || (settings.advantageCap is string && settings.advantageCap.size() <= 100))
+                    && ! ("advantageSystem" in settings) || settings.advantageSystem in [
+                        "CORE_RULEBOOK",
+                        "GROUP_ADVANTAGE",
+                    ]
+                    && (! ("language" in settings) || (settings.language is string));
+            }
+
+            function isValidCombat(combat) {
+                return combat is map
+                    && [
+                       "encounterId",
+                       "combatants",
+                       "turn",
+                       "round",
+                       "groupAdvantage",
+                    ].toSet().hasAll(combat.keys())
+                    && isValidUuid(combat.encounterId)
+                    && combat.combatants is list
+                    && combat.turn is int && combat.turn > 0 && combat.turn <= combat.combatants.size()
+                    && combat.round is int && combat.round > 0
+                    && (! ("groupAdvantage" in combat) || isValidAdvantagePool(combat.groupAdvantage))
+                    && exists(/databases/$(database)/documents/parties/$(partyId)/encounters/$(combat.encounterId))
+            }
+
+            function isValidAdvantagePool(pool) {
+                return pool is map
+                    && pool.keys().toSet() == ["allies", "enemies"].toSet()
+                    && pool.allies is int && pool.allies >= 0
+                    && pool.enemies is int && pool.enemies >= 0;
+            }
+
+            function invitation(party) {
+                return {"partyId": party.id, "accessCode": party.accessCode};
+            }
+
+            function hasInvitation(userId, invitation) {
+                return invitation in get(/databases/$(database)/documents/users/$(userId)).data.invitations;
+            }
+
+            function isGameMaster() {
+                let party = get(/databases/$(database)/documents/parties/$(partyId)).data;
+
+                return request.auth != null
+                    && (request.auth.uid == party.gameMasterId || (request.auth.uid in party.users && party.gameMasterId == null));
+            }
+
+            function hasAccessToParty() {
+                return request.auth != null
+                    && request.auth.uid in get(/databases/$(database)/documents/parties/$(partyId)).data.users
+            }
+
+            function onlyUserAdded() {
+                let userId = request.auth.uid;
+                let diff = resource.data.diff(request.resource.data);
+                let originalUsers = resource.data.users;
+                let newUsers = request.resource.data.users;
+                let invitation = invitation(resource.data);
+
+                return diff.affectedKeys() == ["users"].toSet()
+                    && hasInvitation(userId, invitation)
+                    && originalUsers.toSet().union([userId].toSet()) == newUsers.toSet();
+            }
+
+            function onlyUserRemoved() {
+                let userId = request.auth.uid;
+                let diff = resource.data.diff(request.resource.data);
+                let originalUsers = resource.data.users;
+                let newUsers = request.resource.data.users;
+                let invitation = invitation(resource.data);
+
+                return diff.affectedKeys() == ["users"].toSet()
+                    && originalUsers.toSet() == newUsers.toSet().union([userId].toSet());
+            }
+
+            function combatantsChange() {
+                let userId = request.auth.uid;
+                let diff = resource.data.diff(request.resource.data);
+                let oldCombat = resource.data.activeCombat;
+                let combat = request.resource.data.activeCombat;
+
+                return ["activeCombat", "users"].toSet().hasAll(diff.affectedKeys())
+                    && request.resource.data.users.toSet() == resource.data.users.toSet()
+                    && userId in request.resource.data.users
+                    && isValidCombat(combat)
+                    && ["combatants"].toSet().hasAll(combat.diff(oldCombat).affectedKeys());
+            }
+        }
+
+        match /users/{user} {
+            allow write: if request.auth.uid != null && user == request.auth.uid && isValidUser(request.resource.data);
+
+            function isValidUser(data) {
+                return data.keys() == ["invitations"] && data.invitations is list
+            }
+        }
+    }
+
+    //
+    // Returns true if string contains at least one character that is not a whitespace
+    //
+    function isNotBlank(value) {
+        return value.replace('\\s', '') != ""
+    }
+
+    function validRaces() {
+        return ["HUMAN", "HIGH_ELF", "DWARF", "HALFLING", "WOOD_ELF", "GNOME", "OGRE"];
+    }
+
+    function validCharacteristics() {
+        return [
+           "AGILITY",
+           "BALLISTIC_SKILL",
+           "DEXTERITY",
+           "INITIATIVE",
+           "INTELLIGENCE",
+           "FELLOWSHIP",
+           "STRENGTH",
+           "TOUGHNESS",
+           "WILL_POWER",
+           "WEAPON_SKILL"
+       ];
+    }
+
+    function areMoneyValid(money) {
+        return money is map
+               && money.keys().toSet() == ["pennies"].toSet()
+               && money.pennies is int && money.pennies >= 0;
+    }
+}
