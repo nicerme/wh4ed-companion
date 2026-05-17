@@ -1,0 +1,500 @@
+import TestWFRP from "./test-wfrp4e.js"
+
+export default class CastTest extends TestWFRP {
+
+  constructor(data, actor) {
+    super(data, actor)
+    if (!data)
+      return
+
+    this.preData.itemData = data.itemData || this.item.toObject() // Store item data to avoid rerolls being affected by changed channeled SL
+    this.preData.malignantInfluence = data.malignantInfluence;
+    this.preData.unofficialGrimoire = game.settings.get("wfrp4e", "homebrew").unofficialgrimoire;
+    this.preData.overchannelling = data.overchannelling;
+    this.preData.ingredientMode = data.ingredientMode ?? "none";
+
+    this.data.context.templates = data.templates || [];
+    this.data.context.itemMessage = null;
+
+    // Target is set in the dialog for cast tests, add modifiers then compute target number
+    this.preData.target += this.targetModifiers;
+
+    this.computeTargetNumber();
+  }
+
+  static fromData(...args)
+  {
+    return new this(...args);
+  }
+
+  
+  async roll() {
+    // The casting test shouldn't have targets, so save them and pass them to the spell use message
+    this.context._targets = this.context.targets;
+    this.context.targets = [];
+    return super.roll();
+  }
+
+  async runPreEffects() {
+    await super.runPreEffects();
+    await Promise.all(this.actor.runScripts("preRollCastTest", { test: this, chatOptions: this.context.chatOptions }))
+    await Promise.all(this.item.runScripts("preRollCastTest", { test: this, chatOptions: this.context.chatOptions }))
+
+    //@HOUSE
+    if (this.preData.unofficialGrimoire && this.preData.ingredientMode == 'power' && this.hasIngredient) { 
+      game.wfrp4e.utility.logHomebrew("unofficialgrimoire");
+      this.preData.canReverse = {allowed : true, if: "success"};
+
+    }
+    //@HOUSE
+  }
+
+  async runPostEffects() {
+    await super.runPostEffects();
+    await Promise.all(this.actor.runScripts("rollCastTest", { test: this, chatOptions: this.context.chatOptions }))
+    await Promise.all(this.item.runScripts("rollCastTest", { test: this, chatOptions: this.context.chatOptions }))
+    Hooks.call("wfrp4e:rollCastTest", this, this.context.chatOptions)
+  }
+
+  async computeResult() {
+    if (this.preData.dispel && !this.context.dispelComputed)
+    {
+      this.preData.slBonus -= parseInt(this.preData.dispel.SL);
+      this.context.dispelComputed = true;
+    }
+    await super.computeResult();
+
+    if (this.preData.dispel)
+    {
+      this.result.dispel = this.preData.dispel;
+      this.result.dispel.SL *= -1; // Positive dispel SL should show as negative and vice versa
+    }
+
+    let miscastCounter = 0;
+    let CNtoUse = this.item.cn.value
+    this.result.overcast = foundry.utils.duplicate(this.item.overcast)
+    if (!this.result.overcast.usage)
+    {
+      this.result.overcast.usage = this.item.system.computeOvercastingData(this.actor);
+    }
+    this.result.tooltips.miscast = []
+    
+    //@HOUSE
+    if (this.preData.unofficialGrimoire && this.result.other.indexOf(game.i18n.localize("ROLL.Reverse")) != -1) {
+      if (this.data.result.roll.toString()[this.data.result.roll.toString().length -1] == '8') {
+        game.wfrp4e.utility.logHomebrew("unofficialgrimoire");
+        miscastCounter++;
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.PowerIngredientMiscast"));
+      }
+    }
+    //@HOUSE
+
+    // Partial channelling - reduce CN by SL so far
+    if (game.settings.get("wfrp4e", "homebrew").partialChannelling || game.settings.get("wfrp4e", "useWoMChannelling")) {
+      CNtoUse -= this.preData.itemData.system.cn.SL;
+      if (CNtoUse < 0)
+      {
+        CNtoUse = 0;
+      }
+    }
+    // Normal Channelling - if SL has reached CN, CN is considered 0
+    else if (this.preData.itemData.system.cn.SL >= this.item.cn.value) {
+      CNtoUse = 0;
+    }
+
+
+
+    // Witchcraft automatically miscast
+    if (this.item.lore.value == "witchcraft") {
+      miscastCounter++;
+      this.result.other.push(game.i18n.localize("CHAT.WitchcraftMiscast"))
+      this.result.tooltips.miscast.push(game.i18n.localize("CHAT.AutoWitchcraftMiscast"))
+    }
+
+    // slOver is the amount of SL over the CN achieved
+    let slOver = (Number(this.result.SL) - CNtoUse)
+
+    // Test itself was failed
+    if (this.failed) 
+    {
+      this.result.castOutcome = "failure"
+      this.result.description = game.i18n.localize("ROLL.CastingFailed")
+      if (this.preData.itemData.system.cn.SL) {
+        miscastCounter++
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.ChannellingMiscast"))
+      }
+      // Miscast on fumble
+      if (this.result.roll % 11 == 0 || this.result.roll == 100) {
+        this.result.color_red = true;
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.FumbleMiscast"))
+        if (!this.item.system.memorized.value && this.item.system.lore.value != "petty" && game.wfrp4e.tables.findTable("grimoire-miscast"))
+        {
+          this.result.grimoiremiscast = game.i18n.localize("CHAT.GrimoireMiscast")
+        }
+        miscastCounter++;
+        //@HOUSE
+        if (this.result.roll == 100 && game.settings.get("wfrp4e", "homebrew").mooCatastrophicMiscasts) {
+          game.wfrp4e.utility.logHomebrew("mooCatastrophicMiscasts")
+          miscastCounter++
+        }
+        //@/HOUSE
+      }
+      //@/HOUSE
+      if (this.preData.unofficialGrimoire && this.preData.overchannelling > 0) { 
+        game.wfrp4e.utility.logHomebrew("overchannelling");
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.OverchannellingMiscast"))
+        miscastCounter++;
+      }
+      //@/HOUSE
+    }
+    else if (slOver < 0) // Successful test, but unable to cast due to not enough SL
+    {
+      this.result.castOutcome = "failure"
+      this.result.description = game.i18n.localize("ROLL.CastingFailed")
+      //@/HOUSE
+      if (this.preData.unofficialGrimoire && this.preData.overchannelling > 0) { 
+        game.wfrp4e.utility.logHomebrew("overchannelling");
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.OverchannellingMiscast"))
+        miscastCounter++;
+      }
+      //@/HOUSE
+      // Critical Casting - succeeds only if the user chooses Total Power option (which is assumed)
+      if (this.result.roll % 11 == 0) {
+        this.result.color_green = true;
+        this.result.castOutcome = "success"
+        this.result.description = game.i18n.localize("ROLL.CastingSuccess")
+        this.result.critical = game.i18n.localize("ROLL.TotalPower")
+        this.result.totalPower = true;
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.TotalPowerMiscast"))
+        miscastCounter++;
+      }
+    }
+
+    else // Successful test, casted - determine overcast
+    {
+      this.result.castOutcome = "success"
+      this.result.description = game.i18n.localize("ROLL.CastingSuccess");
+      //@/HOUSE
+      if (this.preData.unofficialGrimoire && this.preData.overchannelling > 0) {
+        game.wfrp4e.utility.logHomebrew("overchannelling");
+        slOver += this.preData.overchannelling;
+        this.result.SL = "+" + slOver;
+      }
+      //@/HOUSE
+
+      if (this.result.roll % 11 == 0) {
+        this.result.critical = game.i18n.localize("ROLL.CritCast")
+        this.result.color_green = true;
+        this.result.tooltips.miscast.push(game.i18n.localize("CHAT.CritCastMiscast"))
+        if (this.preData.totalPower)
+        {
+          this.result.critical = game.i18n.localize("ROLL.TotalPower")
+          this.result.totalPower = true;
+        }
+        miscastCounter++;
+      }
+
+      //@HOUSE
+      if (game.settings.get("wfrp4e", "homebrew").mooCriticalChannelling) {
+        game.wfrp4e.utility.logHomebrew("mooCriticalChannelling")
+        if (this.spell.flags.criticalchannell && CNtoUse == 0) {
+          this.result.SL = "+" + Number(this.result.SL) + this.item._source.system.cn.value
+          this.result.other.push(game.i18n.localize("MOO.CriticalChanelling"))
+        }
+      }
+      //@/HOUSE
+    }
+    //@HOUSE
+    if (this.preData.unofficialGrimoire && this.preData.unofficialGrimoire.quickcasting && miscastCounter > 0) { 
+      game.wfrp4e.utility.logHomebrew("quickcasting");
+      this.result.other.push(game.i18n.localize("CHAT.Quickcasting"))
+      miscastCounter++;
+    }
+    //@/HOUSE
+    
+    miscastCounter += this._checkInfluences() || 0
+    this._calculateOverCast(slOver);
+    this._handleMiscasts(miscastCounter)
+    await this.calculateDamage()
+    this.result.slOver = slOver;
+
+    // TODO handle all tooltips (when they are added) in one place
+    // TODO Fix weird formatting in tooltips (indenting)
+    this.result.tooltips.miscast = "<ul style='text-align: left'>" + this.result.tooltips.miscast.map(t => `<li>${t}</li>`).join("") + "</ul>";
+
+    return this.result;
+  }
+
+  _checkInfluences()
+  {
+    if (!this.preData.malignantInfluence) 
+    {
+      return 0
+    }
+
+    // If malignant influence AND roll has an 8 in the ones digit, miscast
+    if (
+      (Number(this.result.roll.toString().split('').pop()) == 8 && !game.settings.get("wfrp4e", "useWoMInfluences")) || 
+      (this.failed && game.settings.get("wfrp4e", "useWoMInfluences"))) 
+    {
+      this.result.tooltips.miscast.push(game.i18n.localize("CHAT.MalignantInfluence"))
+      return 1;
+    }
+  }
+
+  _calculateOverCast(slOver) {
+    this.result.overcasts = Math.max(0, Math.floor(slOver / 2));
+    this.result.overcast.total = this.result.overcasts;
+    this.result.overcast.available = this.result.overcasts;
+  }
+
+  async calculateDamage() {
+    let damageBreakdown = this.result.breakdown.damage;
+    this.result.additionalDamage = this.preData.additionalDamage || 0
+    // Calculate Damage if the this.item has it specified and succeeded in casting
+    try {
+      if (this.item.Damage && this.result.castOutcome == "success")
+      {
+        this.result.damage = Number(this.result.SL) + Number(this.item.Damage)
+        damageBreakdown.base = `${this.item.Damage} (${game.i18n.localize("Spell")})`
+        damageBreakdown.other.push({label : game.i18n.localize("SL"), value : this.result.SL });
+      }
+
+      if (this.item.damage.dice && !this.result.additionalDamage) {
+        let roll = await new Roll(this.item.damage.dice).roll({allowInteractive : false})
+        this.result.diceDamage = { value: roll.total, formula: roll.formula };
+        this.preData.diceDamage = this.result.diceDamage
+        this.result.additionalDamage += roll.total;
+        damageBreakdown.other.push({label : game.i18n.localize("BREAKDOWN.Dice"), value : roll.total});
+      this.preData.additionalDamage = this.result.additionalDamage;
+      }
+    }
+    catch (error) {
+      ui.notifications.error(game.i18n.localize("ErrorDamageCalc") + ": " + error)
+    } // If something went wrong calculating damage, do nothing and continue
+
+  }
+
+  
+  async moveVortex() 
+  {
+    for (let id of this.context.templates) {
+      let template = canvas.scene.templates.get(id);
+      if (template) {
+
+        let tableRoll = (await game.wfrp4e.tables.rollTable("vortex", {}, "map"))
+        let dist = (await new Roll("2d10").roll({allowInteractive : false})).total
+        let pixelsPerYard = canvas.scene.grid.size / canvas.scene.grid.distance
+        let straightDelta = dist * pixelsPerYard;
+        let diagonalDelta = straightDelta / Math.sqrt(2);
+        tableRoll.result = tableRoll.result.replace("[[2d10]]", dist);
+
+        if (tableRoll) {
+          let { x, y } = template || {};
+          ChatMessage.create({ content: tableRoll.result, speaker: { alias: this.item.name } });
+          if (tableRoll.roll == 1) {
+            await template?.delete();
+            this.context.templates = this.context.templates.filter(i => i != id);
+            await this.updateMessageData();
+            continue;
+          }
+          else if (tableRoll.roll == 2) {
+            y -= straightDelta
+          }
+          else if (tableRoll.roll == 3) {
+            y -= diagonalDelta;
+            x += diagonalDelta;
+          }
+          else if (tableRoll.roll == 4) {
+            x += straightDelta;
+          }
+          else if (tableRoll.roll == 5) {
+
+          }
+          else if (tableRoll.roll == 6) {
+            y += diagonalDelta;
+            x += diagonalDelta
+          }
+          else if (tableRoll.roll == 7) {
+            y += straightDelta;
+          }
+          else if (tableRoll.roll == 8) {
+            y += diagonalDelta;
+            x -= diagonalDelta;
+          }
+          else if (tableRoll.roll == 9) {
+            x -= straightDelta;
+          }
+          else if (tableRoll.roll == 10) {
+            y -= diagonalDelta;
+            x -= diagonalDelta;
+          }
+          template.update({ x, y }).then(template => {
+            // AbilityTemplate.updateAOETargets(template);
+          });
+        }
+      }
+    }
+  }
+
+  computeTables()
+  {
+    super.computeTables();
+    if (this.result.minormis)
+    {
+      this.result.tables.miscast = {
+        label : this.result.minormis,
+        class : "fumble-roll",
+        key : "minormis"
+      }
+    }
+    if (this.result.nullminormis)
+    {
+      this.result.tables.nullminormis = {
+        label : this.result.nullminormis,
+        class : "fumble-roll",
+        key : "minormis",
+        nulled : true
+      }
+    }
+    if (this.result.majormis)
+    {
+      this.result.tables.miscast = {
+        label : this.result.majormis,
+        class : "fumble-roll",
+        key : "majormis",
+      }
+    }
+    if (this.result.nullmajormis)
+    {
+      this.result.tables.nullmajormis = {
+        label : this.result.nullmajormis,
+        class : "fumble-roll",
+        key : "majormis",
+        nulled : true
+      }
+    }
+    if (this.result.catastrophicmis)
+    {
+      this.result.tables.miscast = {
+        label : this.result.catastrophicmis,
+        class : "fumble-roll",
+        key : "catastrophicmis",
+      }
+    }
+    if (this.result.nullcatastrophicmis)
+    {
+      this.result.tables.nullcatastrophicmis = {
+        label : this.result.nullcatastrophicmis,
+        class : "fumble-roll",
+        key : "nullcatastrophicmis",
+        nulled : true
+      }
+    }
+    if (this.result.grimoiremiscast)
+    {
+      this.result.tables.grimoiremiscast = {
+        label : this.result.grimoiremiscast,
+        class : "fumble-roll",
+        key : "grimoire-miscast",
+      }
+    }
+  }
+
+  async postTest() {
+    //@/HOUSE
+    if (this.preData.unofficialGrimoire) {
+      game.wfrp4e.utility.logHomebrew("unofficialgrimoire");
+      if (this.preData.ingredientMode != 'none' && this.hasIngredient && this.item.ingredient?.quantity.value > 0 && !this.context.edited && !this.context.reroll) {
+        await this.item.ingredient.update({ "system.quantity.value": this.item.ingredient.quantity.value - 1 })
+        ChatMessage.create({ speaker: this.context.speaker, content: game.i18n.localize("ConsumedIngredient") })
+      }
+    //@/HOUSE
+    } else {
+      // Find ingredient being used, if any
+      if (this.hasIngredient && this.item.ingredient?.quantity.value > 0 && !this.context.edited && !this.context.reroll)
+        await this.item.ingredient.update({ "system.quantity.value": this.item.ingredient.quantity.value - 1 })
+    }
+
+    // Set initial extra overcasting options to SL if checked
+    if (this.result.overcast.enabled) {
+      if (this.item.system.overcast.initial.type == "SL") {
+        foundry.utils.setProperty(this.result, "overcast.usage.other.initial", parseInt(this.result.SL) + (parseInt(this.item.system.computeSpellPrayerFormula("", {aoe: false, actor: this.actor, formulaOverride: this.spell.system.overcast.initial.additional})) || 0))
+        foundry.utils.setProperty(this.result, "overcast.usage.other.current", parseInt(this.result.SL) + (parseInt(this.item.system.computeSpellPrayerFormula("", {aoe: false, actor: this.actor, formulaOverride: this.spell.system.overcast.initial.additional})) || 0))
+      }
+    }
+
+    if (this.result.miscastModifier) {
+      if (this.result.minormis)
+        this.result.minormis += ` (${this.result.miscastModifier})`
+      if (this.result.majormis)
+        this.result.majormis += ` (${this.result.miscastModifier})`
+      if (this.result.catastrophicmis)
+        this.result.catastrophicmis += ` (${this.result.miscastModifier})`
+    }
+
+    //@HOUSE
+    if (this.item.cn.SL > 0) {
+
+      if (this.result.castOutcome == "success" || !game.settings.get("wfrp4e", "homebrew").mooCastAfterChannelling)
+      {
+        // Only if this spell is an item on the casting actor
+        if (this.item.parent?.uuid == this.actor.uuid)
+        {
+          let items = [this.item]
+
+          // If WoM Channelling, SL of spells are shared, so remove all channelled SL of spells with the same lore
+          if (game.settings.get("wfrp4e", "useWoMChannelling"))
+          {
+            items = this.actor.items.filter(s => s.type == "spell" && s.system.lore.value == this.spell.system.lore.value).map(i => i.toObject())
+            items.forEach(i => i.system.cn.SL = 0)
+            await this.actor.updateEmbeddedDocuments("Item", items);
+          }
+          else 
+          {
+            await this.item.update({ "system.cn.SL": 0 })
+          }
+        }
+      }
+
+      else if (game.settings.get("wfrp4e", "homebrew").mooCastAfterChannelling) {
+        game.wfrp4e.utility.logHomebrew("mooCastAfterChannelling")
+        if (this.item.cn.SL > 0 && this.result.castOutcome == "failure")
+          this.result.other.push(game.i18n.localize("MOO.FailedCast"))
+      }
+    }
+    //@/HOUSE
+  }
+
+  updateDispel(dispelTest)
+  {
+    this.preData.dispel = dispelTest.result;
+    this.preData.roll = Math.trunc(this.result.roll);
+    this.context.dispelComputed = false;
+    this.roll();
+  }
+
+  // Casting should not show any effects to apply, those should be on the spell use message
+  get damageEffects() 
+  {
+      return [];
+  }
+
+  get targetEffects() 
+  {
+      return [];
+  }
+
+  get areaEffects() 
+  {
+      return [];
+  }
+
+  get hasIngredient() {
+    return this.item.ingredient && this.item.ingredient.quantity.value > 0
+  }
+
+  get spell() {
+    return this.item
+  }
+}

@@ -1,0 +1,91 @@
+<section class="tab {{tab.cssClass}}" data-group="primary" data-tab="{{tab.id}}">
+    <div class="form-group">
+        {{#if (settings "useGroupAdvantage")}}
+            <label style="flex: 1"><a data-action="groupActions">{{localize "SHEET.GroupAdvantage"}} <i
+                        class="fa-solid fa-chevron-down"></i></a></label>
+        {{else}}
+            <label style="flex: 1">{{localize "Advantage"}}</label>
+        {{/if}}
+        <div class="form-fields">
+            <input type="number" name="system.status.advantage.value" value="{{system.status.advantage.value}}" />
+        </div>
+    </div>
+
+    <div class="group-actions collapsed">
+
+    </div>
+    
+    {{#if actor.attacker}} 
+    <div class="attacker">
+        <div class="header">{{localize "Attacker"}}</div>
+        <div class="details">
+            <img src="{{tokenImg actor.attacker.test.actor}}">
+            <div class="test">
+                <div>{{tokenName actor.attacker.test.actor}}</div>
+                <div>{{actor.attacker.test.context.chatOptions.title}}</div>
+            </div>
+            <a data-tooltip="{{localize 'SHEET.RemoveAttacker'}}" data-action="removeAttacker"><i class="fas fa-times"></i></a>
+        </div>
+    </div>
+    {{/if}}
+
+    {{> meleeWeapons weapons=items.weapon}}
+    
+    {{> rangedWeapons weapons=items.weapon}}
+
+    {{> aspectsV2 aspectGroup=items.aspect.combat}}
+        
+        <div class="armour-section">
+            <div class="flexrow">
+                {{> armourLocation loc="head" locData=(lookup system.status.armour "head")}}
+                {{> armourLocation loc="body" locData=(lookup system.status.armour "body")}}
+            </div>
+            <div class="flexrow">
+                {{> armourLocation loc="lArm" locData=(lookup system.status.armour "lArm")}}
+                {{> armourLocation loc="rArm" locData=(lookup system.status.armour "rArm")}}
+            </div>
+            <div class="flexrow">
+                {{> armourLocation loc="lLeg" locData=(lookup system.status.armour "lLeg")}}
+                {{> armourLocation loc="rLeg" locData=(lookup system.status.armour "rLeg")}}
+            </div>
+        </div>
+
+
+<div class="mount-section">
+    {{#if actor.system.mount}}
+        <div class="mounted">
+            <div class="mount-header">
+                {{localize "Mount"}} {{#if actor.status.mount.isToken}} ({{localize "Token"}}){{/if}}
+            </div>
+            <div class="mount-details {{#unless actor.status.mount.mounted}}inactive{{/unless}}" data-action="showMount">
+                <div class="mount-img">
+                    <img src="{{actor.mount.img}}">
+                </div>
+                <div class="mount-stats">
+                    <div>
+                        <span>{{actor.mount.name}}</span>
+                        <label>{{localize "Name"}}</label>
+                    </div>
+
+                    <div>
+                        <span> {{actor.mount.status.wounds.value}} / {{actor.mount.status.wounds.max}}</span>
+                        <label>{{localize "Wounds"}}</label>
+                    </div>
+                </div>
+                <div class="mount-controls">
+                    <a data-action="removeMount" data-tooltip="{{localize 'SHEET.RemoveMount'}}"><i class="fas fa-times"></i></a>
+                    {{#if actor.system.status.mount.mounted}}
+                    <a data-action="dismount" data-tooltip="{{localize 'SHEET.Dismount'}}"><i class="fas fa-arrow-down"></i></a>
+                    {{else}}
+                    <a data-action="dismount" data-tooltip="{{localize 'Mount'}}"><i class="fas fa-arrow-up"></i></a>
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    {{else}}
+        <div class="mount-drop" data-tooltip="Drag and drop a world Actor to act as a Mount.">
+            {{localize 'Mount'}}
+        </div>
+    {{/if}}
+</div>
+</section>

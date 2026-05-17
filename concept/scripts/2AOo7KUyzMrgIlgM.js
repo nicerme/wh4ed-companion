@@ -1,0 +1,1 @@
+CorruptionMessageModel.createCorruptionMessage(this.item.system.specification.value, {speaker : {alias: this.actor.prototypeToken.name}})

@@ -1,0 +1,69 @@
+        <div class="test-title" data-tooltip="{{test.result.breakdown.formatted.test}}" data-tooltip-direction="LEFT" >
+            {{test.context.title}}
+        </div>
+    
+        <div class="hide-option comparison">
+            <span class="{{#if test.isCritical}}critical{{/if}} {{#if test.isFumble}}fumble{{/if}}">
+            {{#if test.result.reversed}}
+            {{test.result.originalRoll}}
+            <i class="fa-solid fa-shuffle"></i>
+            {{/if}}
+
+            {{test.result.roll}}
+
+            </span>
+            <span>vs</span>
+            <span>{{test.result.target}}</span>
+        </div>
+        
+        <div class="sl">
+            <div class="sl-container">
+               {{test.result.SL}} 
+            </div>
+        </div>
+
+        <div class="description">
+            <span>
+            <strong>{{test.result.description}}</strong>
+
+            {{#each test.result.tables}}
+            - <a class="table-click action-link {{#if this.nulled}}nulled{{/if}} {{this.class}}" data-action="clickTable" data-column="{{this.column}}" style="{{this.style}}" data-table="{{this.key}}" data-modifier="{{this.modifier}}"><i class="fas fa-list"></i> {{this.label}} {{#if this.modifier}}({{numberFormat this.modifier sign=true}}){{/if}}</a>
+            {{/each}}
+
+            {{#if test.canUseCriticalDeflection}}
+                <br/><a class="action-link" data-action="applyCriticalDeflection">{{localize "CHAT.CriticalDeflection"}}</a>
+            {{/if}}
+        
+            {{#if test.result.misfire}}
+            - <a class ="table-click  action-link fumble" data-action="clickTable" data-damage="{{test.result.misfireDamage}}" data-table = "misfire"><i class="fas fa-list"></i> {{test.result.misfire}}</a>
+            {{/if}}
+            </span>
+        </div>
+
+        {{#if test.doesDamage}} 
+        <div class = "damage">
+            <span>
+                <strong>{{localize "Damage"}}</strong>: 
+                {{{test.DamageString}}}
+                <a class="damage-breakdown"  style="opacity: 0.5" data-tooltip="{{test.result.breakdown.formatted.damage}}" data-tooltip-direction="LEFT" ><i class="fa-solid fa-circle-info"></i></a>
+            </span>
+        </div>
+        {{/if}}
+    
+        {{#if test.result.hitloc}}
+        <div>
+            <span><b>{{localize "ROLL.HitLocation"}}</b>: {{test.result.hitloc.description}}</span>
+        </div>
+        {{/if}}
+
+        {{#if test.otherText}}
+            {{{test.otherText}}}
+        {{/if}}
+
+        {{#if test.result.woundsHealed}}
+        <a class="chat-button" data-action="applyHealing" data-amount="{{test.result.woundsHealed}}">Apply Healing</a>
+        {{/if}}
+
+
+        {{> effectButtons test}}
+

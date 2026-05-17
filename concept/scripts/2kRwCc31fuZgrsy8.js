@@ -1,0 +1,1 @@
+CorruptionMessageModel.createCorruptionMessage("major", this.script.getChatData());

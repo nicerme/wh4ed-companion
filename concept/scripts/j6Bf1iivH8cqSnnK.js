@@ -1,0 +1,1 @@
+return args.target?.hasCondition("prone") || args.target?.hasCondition("surprised")

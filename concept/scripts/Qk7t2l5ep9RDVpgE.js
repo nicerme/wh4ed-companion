@@ -1,0 +1,1 @@
+args.context.diceman= true;

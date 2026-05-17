@@ -1,0 +1,1 @@
+return !args.data.dualWieldingOption && !args.context.dualWieldOffhand

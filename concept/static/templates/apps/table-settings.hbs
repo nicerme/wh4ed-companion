@@ -1,0 +1,5 @@
+<div>
+    {{#each settings}}
+    {{formGroup this.field value=this.value localize=true choices=this.choices name=this.field.name}}
+    {{/each}}
+</div>

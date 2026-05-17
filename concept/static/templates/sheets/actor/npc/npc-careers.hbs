@@ -1,0 +1,41 @@
+<section class="tab {{tab.cssClass}}" data-group="primary" data-tab="{{tab.id}}">
+    <div class="form-group">
+        <label><a data-action="getIncome" data-tooltip="Receive Income">{{localize "Status"}} <i class="fas fa-coins"></i></a></label>
+        <div class="form-fields">
+            <input name="system.details.status.value" type="text" value="{{system.details.status.value}}">
+        </div>
+    </div>
+    <div class="sheet-list careers">
+        <div class="list-header row-content">
+            <div class="list-name">{{localize "Careers"}}</div>
+            <div>{{localize "Complete"}}</div>
+            <div class="list-controls"></div>
+        </div>
+        <div class="list-content">
+            {{#each items.career}}
+                <div class="list-row" data-uuid="{{this.uuid}}">
+                    <div class="row-content">
+                        <div class="list-name">
+                            <img src="{{this.img}}">
+                            <a class="label collapsed" data-action="toggleSummary">{{this.name}}</a>
+                        </div>
+                        <div>
+                            {{#if this.system.complete.value}}
+                                <a data-action="toggleProperty" data-uuid="{{this.uuid}}" data-path="system.complete.value"><i class="far fa-check-circle"></i></a>
+                            {{else}}
+                                <a data-action="toggleProperty" data-uuid="{{this.uuid}}" data-path="system.complete.value"><i class="far fa-circle"></i></a>
+                            {{/if}}
+                        </div>
+                    <div class="list-controls">
+                        <a class="list-control context-menu"><i class="fa-regular fa-ellipsis-vertical"></i></a>
+                    </div>
+                    </div>
+                    {{> sheetButtons document=this}}
+                    <div class="dropdown-content collapsed">
+
+                    </div>
+                </div>
+            {{/each}}
+        </div>
+    </div>
+</section>

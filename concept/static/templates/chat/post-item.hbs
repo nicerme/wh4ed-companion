@@ -1,0 +1,39 @@
+
+<div class="post-item {{#if (eq postQuantity 0)}}disabled inactive{{/if}}">
+    <h4>{{item.name}}</h4>
+    {{#if img}}
+    <img src="{{img}}"/>
+    {{/if}}
+
+    <div class="card-content">{{{item.system.description.value}}}</div>
+
+    {{#if item.system.quantity}}
+    <span><strong>{{localize "Quantity"}}</strong>: {{item.system.quantity.value}}</span><br>
+    {{/if}}
+    {{#each properties as |property p|}}
+    <span>{{{property}}}</span><br>
+    {{/each}}
+    {{#if item.system.price}}
+    <span class="haggle-buttons gm-only" title="{{localize 'CHAT.HaggleHint'}}">
+        <span><b>{{localize "CHAT.Haggle"}}</b>:</span>
+        <a class="haggle" data-action="haggle" data-type="up"><i class="fas fa-caret-up"></i></a>
+        <a class="haggle" data-action="haggle" data-type="down"><i class="fas fa-caret-down"></i></a>
+    </span>
+    {{/if}}
+</div>
+{{#if (gte postQuantity 0)}}
+    <p><strong>{{localize "Post Quantity"}}</strong>: {{postQuantity}}</p>
+{{/if}}
+
+{{#if retrievedBy}}
+<p><strong>Retrieved By: </strong> {{retrievedBy}}</p>
+{{/if}}
+
+{{#if item.system.price}}
+    <div class="chat-buttons">
+        {{#if item.system.availability}}
+        <a class='chat-button' data-action='rollAvailability'>{{localize "MARKET.RollForAvailability"}}</a>
+        {{/if}}
+        <a class='chat-button' data-action='pay'>{{localize "MARKET.PayForItem"}}</a>
+    </div>
+{{/if}}

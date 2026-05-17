@@ -1,0 +1,59 @@
+.warhammer.wfrp4e.actor.character.sheet.application {
+
+    section.tab[data-tab="main"] {
+        overflow-y: auto;
+    }
+
+    --no-trapping: var(--color-level-error-bg);
+    --no-trapping-text: var(--color-light-2);
+    --yes-trapping: var(--color-level-success-bg);
+    --yes-trapping-text: var(--color-light-2);
+
+    .required-trappings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.2rem;
+        .trapping {
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.1rem 0.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--attribute-border);
+            color: var(--no-trapping-text);
+            background: var(--no-trapping);
+            &.owned {
+                background: var(--yes-trapping);
+            }
+        }
+    }
+
+    .attribute-box {
+        &.metacurrencies {
+            flex: 2;
+
+            div:nth-child(-n + 4) {
+                border-bottom: 1px solid var(--attribute-border);
+            }
+
+            .field {
+                background: var(--attribute-input);
+
+                a {
+                    width: 100%;
+                    text-align: center;
+                }
+            }
+        }
+
+        &.experience {
+            .label:first-child {
+                border-bottom: 1px solid var(--attribute-border);
+            }
+
+            flex: 3;
+        }
+    }
+}

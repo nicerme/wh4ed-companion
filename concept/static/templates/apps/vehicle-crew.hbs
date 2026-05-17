@@ -1,0 +1,31 @@
+<div>
+    <div class="role-section">
+        <button data-action="addRole">Add Role</button>
+        <div class="role-list">
+            {{#each roles}}
+                <div class="role" data-id="{{this.id}}" data-tooltip="{{this.system.assignments.length}} {{localize 'VEHICLE.AssignedActors'}}" {{#if (eq this.system.assignments.length 0)}}style="color: var(--color-warm-2)"{{/if}}>
+                    <a data-action="openRole">{{this.name}}</a>
+                    <a class="delete-role" data-action="deleteRole"><i class="fas fa-xmark"></i></a>
+                </div>
+            {{/each}}
+        </div>
+    </div>
+    <hr>
+    <div class="passenger-section">
+        <div class="passenger-list">
+            {{#each passengers}}
+                <div class="passenger">
+                    <div class="passenger-header">
+                        <img src="{{this.img}}" width="50" height="50">
+                        <label>{{this.actor.prototypeToken.name}}</label>
+                    </div>
+                    <div class="passenger-roles" data-id="{{this.id}}">
+                        {{#each this.roles}}
+                        <div>{{this.name}} <a class="unassign-role" data-action="unassign" data-id="{{this.id}}"><i class="fas fa-xmark"></i></a></div>
+                        {{/each}}
+                    </div>
+                </div>
+            {{/each}}
+        </div>
+    </div>
+</div>

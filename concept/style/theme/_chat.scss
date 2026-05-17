@@ -1,0 +1,104 @@
+@use "../mixins/index" as *;
+@use "./mixins" as *;
+
+
+body:not(.no-theme):not(.theme-light) #chat-popout
+{
+    width: 340px;
+}
+
+body:not(.no-theme):not(.theme-light) #chat-popout,
+#interface:not(.theme-light) #chat-notifications:not(.no-theme),
+#interface:not(.theme-light) #sidebar:not(.no-theme) {
+
+
+    @include links;
+
+    hr {
+        @include gradient-border;
+    }
+
+    #chat-message,
+    .chat-form textarea {
+            background: url(./ui/backgrounds/parchment-texture.webp) repeat;
+            border: 1px solid black;
+            border-image: url(./ui/borders/chat-form-border.webp) 10 repeat;
+            border-image-width: 10px;
+            border-image-outset: 0px 0px;
+            padding: 15px;
+            box-shadow: inset 0 0 40px #000000;
+            color: black;
+    }
+
+    #chat-message:has(.editor-container)
+    {
+        padding: 8px;
+        gap: 0px;
+        .editor-menu {
+                background: var(--color-warm-half);
+                border-radius: 0px;
+        }
+        > .editor-container 
+        {
+            .editor-content {
+                color: black;
+                @include editor-text;
+            }
+            padding: 8px;
+            background: none;
+            border: none;
+        }
+    }
+
+    .ui-control {
+        @include wfrp-button-sm;
+    }
+
+    .chat-message 
+    {
+        box-shadow: 0 0 15px black;
+    }
+    .chat-message,
+    .chat-log .message {
+        --color-text-accent: var(--color-warm-3);
+        border: 1px solid;
+        border-image: url(./ui/backgrounds/chat-message-border.webp) 21 repeat;
+        border-image-width: 12px;
+        border-image-slice: 12;
+        background-image: url(./ui/backgrounds/parchment-texture.webp);
+        border-image-outset: 8px;
+        border-radius: 0px;
+        margin: 1.5rem 1rem;
+        padding: 1re 0.5rem;
+
+        &.whisper {
+            border-image-source: url(./ui/backgrounds/chat-message-border-private.webp);
+            &.blind {
+                border-image-source: url(./ui/backgrounds/chat-message-border-blind.webp);
+            }
+        }
+
+        .message-header {
+            text-shadow: 0px 0px 1px #00000087;
+            border: 3px double #3e000078;
+            padding: 0.5rem 0.5rem;
+            margin-bottom: 0.2rem;
+
+            .flavor-text,
+            .message-sender {
+                color: var(--color-warm);
+            }
+
+            .message-metadata {
+                color: var(--color-grey2);
+            }
+        }
+
+
+        a.button,
+        .chat-button,
+        button {
+            @include styled-button;
+        }
+    }
+}

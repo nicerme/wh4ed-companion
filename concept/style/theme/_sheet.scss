@@ -1,0 +1,324 @@
+
+@use "../mixins/index" as *;
+@use "./mixins" as *;
+            
+.theme-light .wfrp4e.sheet.application:not(.no-theme),
+.wfrp4e.sheet.application:not(.no-theme) {
+
+
+        // Overrides
+        --attribute-input: none;
+        --attribute-label: none;
+        --attribute-border: #736953a6;
+        --attribute-locked-input: none;
+        --attribute-locked-border: none;
+        --list-header: none;
+        --list-header-border: #736953a6;
+        --list-row: #7b733b29;
+        --list-row-alternate: #9e856a0d;
+        --form-label: none;
+        --form-input: none;
+        --form-group-border : var(--color-faded);
+        --condition-label: none;
+        --condition-border: var(--color-faded);
+        --tag-bg : var(--color-faded-bg);
+        --tag-border: var(--color-faded);
+
+        &.classic-font
+        {
+            font-family: var(--primary-font);
+            
+            button:not(.icon) {
+                font-family: var(--primary-font);
+            }
+
+            .tabs > a,
+            table th,
+            .row-label,
+            .form-group label,
+            .attribute-box .label {
+                font-family: var(--header-font);
+                font-size: var(--font-size-16);
+            }
+        }
+
+        @include window-header();
+
+        .window-header {
+            padding-top: 0.5rem;
+            padding-left: 1rem;
+        }
+
+        hr {
+            @include gradient-border;
+        }
+
+
+        .detail-group {
+            height: 2.35rem;
+            input {
+                height: 1rem;
+                color: var(--color-grey1);
+                // font-family: var(--input-font);
+                &:focus {
+                    outline: none;
+                }
+            }
+
+            label {
+                // font-family: var(--header-font);
+                height: 1rem;
+                border-color: var(--color-grey2);
+                color: var(--color-grey2);
+            }
+        }
+
+        nav.sheet-tabs {
+
+            border-top: none;
+            border-bottom: none;
+
+            &.tabs {
+                > a {
+                    border-image: url(./ui/borders/actor-sheet-tab-border.webp) 4 repeat;
+                    border-image-width: 4px;
+                    border-image-outset: 2px;
+                    color: var(--color-cool);
+                    height: 1.5rem;
+                    line-height: 1.5rem;
+                    padding: 0px;
+
+                    &.active {
+                        background: none;
+                        @include shadowed(var(--color-warm), 5px);
+                        color: var(--color-warm);
+                    }
+                }
+            }
+        }
+
+        select:focus,
+        input:focus {
+            box-shadow: none;
+            border: 1px dotted var(--color-faded);
+            border-radius: 3px;
+            outline: none;  
+            &::selection {
+                background: var(--color-warm);
+            }
+
+            option:hover {
+                background: var(--color-warm);
+            }
+            
+        }
+
+        .attribute-box {
+            .label {
+                @include shadowed();
+                color: var(--color-grey2);
+            }
+
+            .field {
+                a {
+                    color: var(--color-grey1);
+                }
+                .value,
+                select,
+                input {
+                    color: var(--color-grey1);
+                    &:read-only:not(select),
+                    &:disabled {
+                        color: var(--color-grey2);
+                    }
+                }
+            }
+        }
+
+        .sheet-list {
+            .list-header {
+                @include shadowed(#6b3a0f87);
+                color: var(--color-grey2);
+
+                .list-button {
+                    @include shadowed(#6b3a0f87);
+                    color: var(--color-grey2);
+                    border: 1px solid var(--color-faded);
+                    border-radius: 50%;
+                    flex: 0 0 1.3rem;
+                    height: 1.3rem;
+                    line-height: 1.3rem;
+                    text-align: center;
+                    margin: 0px 3px;
+                }
+            }
+
+            .list-content {
+                border: 1px solid var(--color-faded);
+                border-top: none;
+
+                .list-row {
+                    box-shadow: 0px 0px 1px inset black;
+                    color: var(--color-grey1);
+
+                    .row-content {
+                        
+                    }
+                }
+            }
+
+            input {
+                color: var(--color-grey1);
+                &:not([type=checkbox])
+                {
+                    background: rgba(0, 0, 0, 0.05)
+                }
+            }
+
+            select {
+                border:1px solid var(--color-grey3);
+                height: 1.5rem;
+                align-self: center;
+                color: var(--color-grey1);
+                background: none;    
+                &:focus {
+                    outline: none;
+                }
+            }
+        }
+
+        .form-group{
+            label {
+                border-right: 1px solid var(--color-faded);
+                @include shadowed();
+                color: var(--color-grey2);
+            }
+            select,
+            input {
+                background: none;
+                color: var(--color-grey1);
+            }
+
+            .hint {
+                color: var(--color-grey1);
+                border-color: var(--color-faded);
+            }
+        }
+
+        input[type="checkbox"]
+        {
+            --checkbox-checked-color: var(--color-warm);
+            &:focus {
+                border: none;
+            }
+        }
+
+        section.tab[data-tab=effects]
+        {
+            .condition {
+                > :first-child {
+                    border-color: var(--color-faded);
+                    color: var(--color-grey2);
+                    @include shadowed();
+                }
+                .controls {
+                    border-left: 1px solid var(--color-faded);
+                    background: none;
+                    color: var(--color-grey1);
+                }
+            }
+        }
+
+
+        .sheet-button {
+            @include styled-button();
+            height: 1.5rem;
+            padding: 0px 6px;
+            line-height: 1.5rem;
+            min-height: 1.5rem;
+        }
+
+        .sheet-effect-buttons {
+            gap: 0.5rem;
+            button {
+                @include styled-button();
+                height: 1.5rem;
+                padding: 0px 6px;
+                line-height: 1.5rem;
+            }
+        }
+
+        .editor-section {
+            border: 1px solid var(--color-faded);
+            .header {
+                background: none;
+                @include shadowed(#6b3a0f87);
+                color: var(--color-grey2);
+                border: none;
+                border-bottom: 1px solid var(--color-faded);
+            }
+            .editor-content {
+                padding: 5px 5px;
+                color: var(--color-grey1);
+                @include editor-text();
+                p:first-child {
+                    margin-top: 0px;
+                }
+            }
+
+            prose-mirror {
+                .editor-content {
+                    position: static; 
+                }
+                .editor-menu {
+                    background: none;
+                    @include shadowed(#6b3a0f87);
+                    border-radius: 0px;
+                    button {
+                        color: var(--color-grey2)
+                    }
+                }
+                > button {
+                    margin: 0.5rem;
+                    @include editor-button();
+                }
+            }
+        }
+
+        fieldset {
+            border-color: var(--color-faded);
+            legend {
+                color: var(--color-grey2);
+            }
+        }
+
+        table {
+            background: none;
+            color: black;   
+
+            select,
+            input {
+                color: black;
+                border-radius: 0px;
+
+                &:focus {
+                    border: 1px dotted var(--color-faded);
+                    border-radius: 3px;
+                    outline: none;  
+
+                    option:hover {
+                        background: var(--color-warm);
+                    }
+                    
+                }
+            }
+        }
+
+        .choice-group {
+            color: black;
+            .choice-text {
+                border-color: var(--color-faded);
+            }
+        }
+    
+    }

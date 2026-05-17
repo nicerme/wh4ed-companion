@@ -1,0 +1,1 @@
+return !args.context.terror && !args.extendedTest?.getFlag("wfrp4e", "fear");

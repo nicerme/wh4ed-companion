@@ -1,0 +1,118 @@
+import CharacteristicDialog from "./characteristic-dialog";
+import SkillDialog from "./skill-dialog";
+
+export default class CastDialog extends SkillDialog {
+
+    testClass = game.settings.get("wfrp4e", "useWoMOvercast") ? game.wfrp4e.rolls.WomCastTest : game.wfrp4e.rolls.CastTest
+    chatTemplate = "systems/wfrp4e/templates/chat/roll/spell-card.hbs"
+
+
+    get item()
+    {
+      return this.data.spell
+    }
+
+    get spell() 
+    {
+      return this.item;
+    }
+
+    
+    static PARTS = {
+        fields : {
+            template : "systems/wfrp4e/templates/dialog/type/base-dialog.hbs",
+            fields: true
+        },
+        modifiers : {
+            template : "modules/warhammer-lib/templates/partials/dialog-modifiers.hbs",
+            modifiers: true
+        },
+        specific : {
+            template : "systems/wfrp4e/templates/dialog/type/spell-dialog.hbs",
+        },
+        footer : {
+            template : "templates/generic/form-footer.hbs"
+        }
+    };
+
+    async _prepareContext(options)
+    {
+        let context = await super._prepareContext(options);
+        context.ingredientModes = {
+            none : "IngredientNone",
+            power : "IngredientPower",
+            control : "IngredientControl"
+        }
+        return context;
+    }
+
+    static async setupData(spell, actor, context={}, options={})
+    {
+        let skill = context.skill || spell.skillToUse;
+        let characteristic = context.characteristic || skill?.system?.characteristic?.key || "int";
+        
+        context.title = context.title || game.i18n.localize("CastingTest") + " - " + spell.name;
+        context.title += context.appendTitle || "";
+        delete context.appendTitle;
+
+        context.hitloc = !!spell.system.damage.value
+
+        let dialogData;
+        if (skill)
+        {   
+            dialogData = await super.setupData(skill, actor, context, options);
+        }
+        else
+        {
+            dialogData = await CharacteristicDialog.setupData(characteristic, actor, context, options);
+        }
+
+        let data = dialogData.data;
+        data.spell = spell;
+
+        if (!skill)
+          data.target = actor.system.characteristics[characteristic].value
+        else
+          data.target = skill.system.total.value
+
+        data.scripts = data.scripts.concat(data.spell?.getScripts("dialog").concat(data.spell.ingredient?.getScripts("dialog") || []).filter(s => !s.options.defending))
+
+        // Needed if the actor doesn't own the spell;
+        data.itemData = spell.toObject();
+
+        return dialogData;
+    }
+
+    _getSubmissionData()
+    {
+        let data = super._getSubmissionData();
+        data.item = this.data.spell.id
+        return data;
+    }
+    
+    _computeAdvantage()
+    {
+        // @HOUSE
+        if (game.settings.get("wfrp4e", "homebrew").mooMagicAdvantage)
+        {
+            return 0;
+        }
+        else 
+        {
+            return super._computeAdvantage();
+        }
+    }
+    
+    _defaultFields() 
+    {
+        return foundry.utils.mergeObject({
+            overchannelling : 0
+        }, super._defaultFields());
+    }
+
+    // Backwards compatibility for effects
+    get type() 
+    {
+        return "cast";
+    }
+}

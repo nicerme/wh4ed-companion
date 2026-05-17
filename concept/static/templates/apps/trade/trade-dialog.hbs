@@ -1,0 +1,61 @@
+<div>
+  {{#if cargo}}
+    <p>{{localize cargo.name}} - {{cargo.system.encumbrance.value}} Enc. - {{cargo.system.price.gc}}
+      {{localize "MARKET.Abbrev.GC"}}</p>
+  {{/if}}
+  <div class="form-group">
+    <label>{{localize "TRADE.Settlement"}}</label>
+    <div class="form-fields">
+
+    <select type="text" name="settlement">
+      <option value=""></option>
+      {{selectOptions settlements}}
+    </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "TRADE.SettlementName"}}</label>
+    <div class="form-fields">
+    <input type="text" name="name" />
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "TRADE.Size"}}</label>
+    <input type="text" name="size" />
+    <label>{{localize "TRADE.Wealth"}}</label>
+    <input type="text" name="wealth" />
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "TRADE.Trade"}}</label>
+    <div class="form-fields">
+      <input type="checkbox" name="trade">
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>{{localize "TRADE.Produces"}}</label>
+    <input type="text" name="produces" />
+  </div>
+
+
+  {{#if (eq tradeType "maritime")}}
+    <div class="form-group">
+      <label>{{localize "TRADE.Surplus"}}</label>
+      <input type="text" name="surplus" />
+      <label>{{localize "TRADE.Demand"}}</label>
+      <input type="text" name="demand" />
+    </div>
+  {{/if}}
+
+  {{#if seasons}}
+    <div class="form-group">
+      <label>{{localize "TRADE.Season"}}</label>
+      <select type="text" id="season" name="season">
+        {{selectOptions seasons selected=season}}
+      </select>
+    </div>
+  {{/if}}
+</div>
